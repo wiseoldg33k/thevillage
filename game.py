@@ -1,6 +1,8 @@
 import arcade
 import os
-
+from pathfinding.core.diagonal_movement import DiagonalMovement
+from pathfinding.core.grid import Grid
+from pathfinding.finder.a_star import AStarFinder
 import random
 
 SCREEN_WIDTH = 1024
@@ -14,10 +16,47 @@ RESOURCE_SPRITE_SCALING = 0.5
 GRID_SIZE = 64
 
 
+def pixels_to_grid(x, y, max_y, grid_size):
+    return x // grid_size, (max_y - y) // grid_size
+
+
+def grid_to_pixels(x, y, max_y, grid_size):
+    return x * grid_size, max_y - (y * grid_size)
+
+
 class Villager(arcade.Sprite):
+    def __init__(self, game, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.game = game
+        self.name = name
+        self.current_path = []
+
+    def compute_path(self, obj):
+        grid_obj_pos = pixels_to_grid(
+            obj.center_x, obj.center_y, max_y=SCREEN_HEIGHT, grid_size=GRID_SIZE
+        )
+        grid_self_pos = pixels_to_grid(
+            self.center_x, self.center_y, max_y=SCREEN_HEIGHT, grid_size=GRID_SIZE
+        )
+
+        start = self.game.grid.node(*grid_self_pos)
+        end = self.game.grid.node(*grid_obj_pos)
+
+        finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
+        path, runs = finder.find_path(start, end, self.game.grid)
+
+        print(self.name.center(20, "="))
+        print(self.game.grid.grid_str(path=path, start=start, end=end))
+
+        self.current_path = path
+        return path
+
     def update(self):
-        self.center_x += random.randint(-1, 1) * GRID_SIZE
-        self.center_y += random.randint(-1, 1) * GRID_SIZE
+        if self.current_path:
+            path = self.current_path
+        else:
+            if self.game.resources:
+                path = self.compute_path(self.game.resources[0])
 
 
 class Building(arcade.Sprite):
@@ -47,6 +86,7 @@ class MyGame(arcade.Window):
         self.town_hall_location = (0, 0)
         self.pause = False
         self.show_pathfinding_grid = True
+        self.grid = None
 
         self.villagers = arcade.SpriteList()
         self.buildings = arcade.SpriteList()
@@ -57,6 +97,16 @@ class MyGame(arcade.Window):
         arcade.set_background_color(arcade.color.AMAZON)
         self.pause = False
         self.set_update_rate(rate=rate)
+
+        matrix = []
+        for y in range(0, SCREEN_HEIGHT, GRID_SIZE):
+            row = []
+            for x in range(0, SCREEN_WIDTH, GRID_SIZE):
+                row.append(1)
+            matrix.insert(0, row)
+
+        self.grid = Grid(matrix=matrix)
+        print(self.grid.grid_str())
 
     def draw_pathfinding_canvas(self):
         for x in range(0, SCREEN_WIDTH, GRID_SIZE):
@@ -90,10 +140,11 @@ class MyGame(arcade.Window):
 
     def add_villager(self, name, imagename):
         v = Villager(
-            os.path.join("assets", "villagers", imagename),
+            filename=os.path.join("assets", "villagers", imagename),
             scale=VILLAGER_SPRITE_SCALING,
+            game=self,
+            name=name,
         )
-        v.name = name
         v.center_x, v.center_y = self.town_hall_location
         self.villagers.append(v)
 
