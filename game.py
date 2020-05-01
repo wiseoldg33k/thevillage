@@ -26,6 +26,10 @@ def grid_to_pixels(x, y, max_y, grid_size):
     return x * grid_size, max_y - (y * grid_size)
 
 
+def pretty_print_cargo(cargo):
+    return ",".join(f"{qty}x{kind.title()}" for kind, qty in cargo.items())
+
+
 class Villager(arcade.Sprite):
     def __init__(self, game, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,7 +41,8 @@ class Villager(arcade.Sprite):
 
     def harvest(self, resource):
         res = resource.harvest()
-        print(f"{self.name} has harvested {res}")
+        msg = f"{self.name} has harvested {pretty_print_cargo(res)}"
+        self.game.status_messages.append(msg)
         for kind, amount in res.items():
             if kind in self.inventory:
                 self.inventory[kind] += amount
@@ -45,7 +50,8 @@ class Villager(arcade.Sprite):
                 self.inventory[kind] = amount
 
     def deposit(self, storage):
-        print(f"{self.name} is depositing {self.inventory}")
+        msg = f"{self.name} is depositing {pretty_print_cargo(self.inventory)}"
+        self.game.status_messages.append(msg)
         for kind, amount in self.inventory.items():
             if kind in storage.inventory:
                 storage.inventory[kind] += amount
@@ -87,7 +93,8 @@ class Villager(arcade.Sprite):
         if colliding_buildings:
             building = colliding_buildings[0]
             if building is self.game.town_hall:
-                self.deposit(building)
+                if self.inventory:
+                    self.deposit(building)
 
     def update(self):
         if self.current_path:
@@ -147,6 +154,8 @@ class MyGame(arcade.Window):
         self.pause = False
         self.show_pathfinding_grid = False
 
+        self.status_messages = []
+
         matrix = []
         for y in range(0, SCREEN_HEIGHT, GRID_SIZE):
             row = []
@@ -184,6 +193,10 @@ class MyGame(arcade.Window):
 
         # keep villagers on top of everything please
         self.villagers.draw()
+
+        # write status messages
+        for row_num, msg in enumerate(self.status_messages[-5:]):
+            arcade.draw_text(msg, 10, 36 * row_num, arcade.color.GREEN, 36)
 
     def on_update(self, delta_time):
         if not self.pause:
