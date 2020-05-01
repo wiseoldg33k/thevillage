@@ -17,12 +17,27 @@ There is no interaction during the game, apart from the time factor. Once a game
 Once there is a working prototype, documentation will be welcome.
 
 You can also join the project [Discord server](https://discord.gg/qh96QwY).
+Progress on the project is also live-streamed on [Twitch](https://www.twitch.tv/wiseoldg33k).
 
 # How can I play?
 
 Currently there is not release that you can just run on your computer. 
-You will need to setup a development environment in order to play the game. 
+You will need to setup a development environment (see below) in order to play the game. 
+
+
+# Setup your development environment
+You can follow the instructions in the **excellent** [Arcade book](https://learn.arcade.academy/chapters/02_setup/setup.html).
+It contains setup instructions for all systems supported by Arcade.
+If it's your first time with Arcade, you probably want to read a few sections of the Arcade book before jumping in the code. 
+Once you have this covered, you can clone this repository on your local computer, and start having fun.
+
+
 
 # Requirements
-- Python 3.7
-- the Arcade library
+- Python 3.7 (Arcade tends to not work with other versions)
+- the Arcade library (any recent version will do)
+
+To install all the requirements, simply run the following command:
+```shell
+ $ pip install -r requirements.txt
+```
