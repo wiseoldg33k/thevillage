@@ -33,6 +33,26 @@ class Villager(arcade.Sprite):
         self.name = name
         self.current_path = deque([])
 
+        self.inventory = {}
+
+    def harvest(self, resource):
+        res = resource.harvest()
+        print(f"{self.name} has harvested {res}")
+        for kind, amount in res.items():
+            if kind in self.inventory:
+                self.inventory[kind] += amount
+            else:
+                self.inventory[kind] = amount
+
+    def deposit(self, storage):
+        print(f"{self.name} is depositing {self.inventory}")
+        for kind, amount in self.inventory.items():
+            if kind in storage.inventory:
+                storage.inventory[kind] += amount
+            else:
+                storage.inventory[kind] = amount
+        self.inventory.clear()
+
     def compute_path(self, obj):
         grid = Grid(matrix=self.game.matrix)
 
@@ -53,27 +73,57 @@ class Villager(arcade.Sprite):
         self.current_path = path
         return path
 
+    def perform_local_action(self):
+        colliding_resources = arcade.check_for_collision_with_list(
+            self, self.game.resources
+        )
+        if colliding_resources:
+            resource = colliding_resources[0]
+            self.harvest(resource=resource)
+
+        colliding_buildings = arcade.check_for_collision_with_list(
+            self, self.game.buildings
+        )
+        if colliding_buildings:
+            building = colliding_buildings[0]
+            if building is self.game.town_hall:
+                self.deposit(building)
+
     def update(self):
         if self.current_path:
             path = self.current_path
-        else:
-            if self.game.resources:
-                target = random.choice(self.game.resources)
-                path = self.compute_path(target)
-
-        if path:
             next_move = path.popleft()
             self.center_x, self.center_y = grid_to_pixels(
                 *next_move, max_y=SCREEN_HEIGHT, grid_size=GRID_SIZE
             )
+        else:
+            self.perform_local_action()
+
+            if self.inventory:
+                target = self.game.town_hall
+            elif self.game.resources:
+                target = random.choice(self.game.resources)
+
+            self.compute_path(target)
 
 
 class Building(arcade.Sprite):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inventory = {}
 
 
 class Resource(arcade.Sprite):
-    pass
+    def __init__(self, kind, amount, *args, **kwargs):
+        self.kind = kind
+        self.amount = amount
+        super().__init__(*args, **kwargs)
+
+    def harvest(self):
+        max_amount = min(5, self.amount)
+        harvested_amount = random.randint(1, max_amount)
+        self.amount -= harvested_amount
+        return {self.kind: harvested_amount}
 
 
 class MyGame(arcade.Window):
@@ -93,6 +143,7 @@ class MyGame(arcade.Window):
         os.chdir(file_path)
 
         self.town_hall_location = (0, 0)
+        self.town_hall = None
         self.pause = False
         self.show_pathfinding_grid = False
 
@@ -164,11 +215,14 @@ class MyGame(arcade.Window):
         self.buildings.append(b)
 
         self.town_hall_location = (b.center_x, b.center_y)
+        self.town_hall = b
 
-    def add_resource(self, x_placement, y_placement, imagename):
+    def add_resource(self, x_placement, y_placement, imagename, kind, amount):
         res = Resource(
-            os.path.join("assets", "terrain", "Environment", imagename),
+            filename=os.path.join("assets", "terrain", "Environment", imagename),
             scale=RESOURCE_SPRITE_SCALING,
+            kind=kind,
+            amount=amount,
         )
         res.center_x = (int(x_placement * SCREEN_WIDTH) // GRID_SIZE) * GRID_SIZE
         res.center_y = (int(y_placement * SCREEN_HEIGHT) // GRID_SIZE) * GRID_SIZE
@@ -180,11 +234,13 @@ def main():
     game = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
     game.setup(1 / 6)
 
-    game.add_town_hall(0.5, 0.5, "medievalStructure_09.png")
+    game.add_town_hall(0.5, 0.5, "storage.png")
 
-    game.add_resource(0.2, 0.2, "medievalEnvironment_19.png")
-    game.add_resource(0.8, 0.8, "medievalEnvironment_19.png")
-    game.add_resource(0.1, 0.9, "medievalEnvironment_19.png")
+    game.add_resource(0.2, 0.2, "medievalEnvironment_19.png", kind="apple", amount=50)
+    game.add_resource(0.8, 0.8, "medievalEnvironment_19.png", kind="peach", amount=50)
+    game.add_resource(
+        0.1, 0.9, "medievalEnvironment_19.png", kind="raspberry", amount=50
+    )
 
     game.add_villager("Alice", "female_idle.png")
     game.add_villager("Rob", "zombie_idle.png")
